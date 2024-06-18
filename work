@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        ECR_REGISTRY = '552157865569.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPOSITORY = 'eks'
+        AWS_CREDENTIALS_ID = 'awsmaster' // Replace with your AWS credentials ID in Jenkins
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', credentialsId: AWS_CREDENTIALS_ID]]) {
+                        sh '''
+                            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+                            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${env.BUILD_ID} .
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', credentialsId: AWS_CREDENTIALS_ID]]) {
+                        sh '''
+                            docker push $ECR_REGISTRY/$ECR_REPOSITORY:${env.BUILD_ID}
+                            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${env.BUILD_ID} $ECR_REGISTRY/$ECR_REPOSITORY:latest
+                            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}
+
