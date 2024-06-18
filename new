@@ -1,0 +1,29 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        ECR_REGISTRY = '552157865569.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPOSITORY = 'ecr-us-east-1'
+    }
+
+    stages {
+        stage('checkout') {
+            steps {
+                checkout scmGit(branches: [[name: 'main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Anker-prachi/eks.git']])
+            }
+        }
+        stage('build') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', credentialsId: 'your_aws_credentials_id']]) {
+                        sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY'
+                        def customImage = docker.build("${ECR_REGISTRY}/${ECR_REPOSITORY}:${env.BUILD_ID}")
+                        customImage.push('latest')
+                    }
+                }
+            }
+        }
+    }
+}
+
