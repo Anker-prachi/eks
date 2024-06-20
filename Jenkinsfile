@@ -1,74 +1,63 @@
 pipeline {
     agent any
     environment {
-        AWS_ACCOUNT_ID="552157865569"
-        AWS_DEFAULT_REGION="us-east-1"
-        IMAGE_REPO_NAME="eks"
-        IMAGE_TAG="latest"
-        REPOSITORY_URI = "552157865569.dkr.ecr.us-east-1.amazonaws.com/eks"
-        CLUSTER_NAME = "test" // Update with your EKS cluster name
+        AWS_DEFAULT_REGION = 'us-east-1'
+        EKS_CLUSTER_NAME = 'test'
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
-   
     stages {
-        
+        stage('Debug Environment') {
+            steps {
+                script {
+                    sh 'whoami'
+                    sh 'echo $KUBECONFIG'
+                    sh 'ls -la /var/lib/jenkins/.kube/'
+                    sh 'cat /var/lib/jenkins/.kube/config'
+                    sh 'kubectl config current-context'
+                }
+            }
+        }
         stage('Logging into AWS ECR') {
             steps {
                 script {
-                    sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+                    sh 'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com'
                 }
             }
         }
-        
-        stage('Cloning Git') {
+        stage('Checkout') {
             steps {
-                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Anker-prachi/eks.git']]) 
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: 'https://github.com/Anker-prachi/eks.git']]])
             }
         }
-  
-        // Building Docker images
-        stage('Building image') {
-            steps{
+        stage('Build Docker Image') {
+            steps {
                 script {
-                    dockerImage = docker.build "${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+                    sh 'docker build -t 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest .'
                 }
             }
         }
-   
-        // Uploading Docker images into AWS ECR
-        stage('Pushing to ECR') {
-            steps {  
+        stage('Push to ECR') {
+            steps {
                 script {
-                    sh "docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}"
-                    sh "docker push ${REPOSITORY_URI}:${IMAGE_TAG}"
+                    sh 'docker push 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest'
                 }
             }
         }
-
-        // Configuring kubectl to use EKS cluster
         stage('Configure kubectl') {
             steps {
                 script {
-                    sh """
-                    aws eks update-kubeconfig --region ${AWS_DEFAULT_REGION} --name ${CLUSTER_NAME}
-                    """
+                    sh 'aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
                 }
             }
         }
-
-        // Deploying the Docker image to EKS
         stage('Deploy to EKS') {
             steps {
-                script {
-                    sh 
-                    "kubectl apply -f deployment.yaml"
-                    "kubectl apply -f service.yaml"
-<<<<<<< HEAD
-=======
-                
->>>>>>> origin/main
+                retry(3) {
+                    script {
+                        sh 'kubectl apply -f deployment.yaml --validate=false'
+                    }
                 }
             }
         }
     }
 }
-
