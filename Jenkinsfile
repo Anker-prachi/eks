@@ -62,6 +62,10 @@ pipeline {
                     sh 
                     "kubectl apply -f deployment.yaml"
                     "kubectl apply -f service.yaml"
+<<<<<<< HEAD
+=======
+                
+>>>>>>> origin/main
                 }
             }
         }
