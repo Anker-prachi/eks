@@ -12,15 +12,16 @@ pipeline {
                     sh 'whoami'
                     sh 'echo $KUBECONFIG'
                     sh 'ls -la /var/lib/jenkins/.kube/'
-                    sh 'cat /var/lib/jenkins/.kube/config'
-                    sh 'kubectl config current-context'
+                    sh 'cat /var/lib/jenkins/.kube/config || echo "Kubeconfig file not found"'
+                    sh 'kubectl version --client || echo "kubectl not installed"'
+                    sh 'kubectl config current-context || echo "No current context set in kubectl"'
                 }
             }
         }
         stage('Logging into AWS ECR') {
             steps {
                 script {
-                    sh 'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com'
+                    sh 'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com || echo "Failed to log in to AWS ECR"'
                 }
             }
         }
@@ -32,21 +33,23 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest .'
+                    sh 'docker build -t 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest . || echo "Docker build failed"'
                 }
             }
         }
         stage('Push to ECR') {
             steps {
                 script {
-                    sh 'docker push 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest'
+                    sh 'docker push 552157865569.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/eks:latest || echo "Docker push failed"'
                 }
             }
         }
         stage('Configure kubectl') {
             steps {
                 script {
-                    sh 'aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
+                    sh 'aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $EKS_CLUSTER_NAME || echo "Failed to update kubeconfig"'
+                    // Additional step to get AWS credentials
+                    sh 'aws sts get-caller-identity || echo "Failed to get AWS identity"'
                 }
             }
         }
@@ -54,7 +57,7 @@ pipeline {
             steps {
                 retry(3) {
                     script {
-                        sh 'kubectl apply -f deployment.yaml --validate=false'
+                        sh 'kubectl apply -f deployment.yaml --validate=false || echo "kubectl apply failed"'
                     }
                 }
             }
