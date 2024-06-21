@@ -48,7 +48,7 @@ pipeline {
             steps {
                 script {
                     sh 'aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $EKS_CLUSTER_NAME || echo "Failed to update kubeconfig"'
-                    // Additional step to get AWS credentials
+                    // Validate AWS credentials
                     sh 'aws sts get-caller-identity || echo "Failed to get AWS identity"'
                 }
             }
