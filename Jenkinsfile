@@ -58,6 +58,9 @@ pipeline {
                 retry(3) {
                     script {
                         sh 'kubectl apply -f deployment.yaml --validate=false || echo "kubectl apply failed"'
+                        sh 'kubectl get deployments'
+                        sh 'kubectl get pods'
+                        sh 'kubectl get services'
                     }
                 }
             }
