@@ -1,4 +1,4 @@
-name: "CodeQL Advanced"
+name: "CodeQL Security Scan"
 
 on:
   push:
@@ -6,12 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    - cron: '37 4 * * 6'  # Weekly scan every Saturday at 4:37 UTC
+    - cron: '37 4 * * 6'  # Weekly scan on Saturdays
 
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
 
     permissions:
@@ -38,17 +37,15 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          # Optional: Add custom queries
-          # queries: +security-extended
+          queries: +security-extended  # Enable extended security rules
 
-      # Manual build step if needed (for compiled languages)
       - if: matrix.build-mode == 'manual'
         shell: bash
         run: |
-          echo 'Manual build step is not needed for this language'
+          echo "Manual build step required for some compiled languages."
           exit 1
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{matrix.language}}"
+          category: "/language:${{ matrix.language }}"
